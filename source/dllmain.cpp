@@ -45,7 +45,7 @@ int __cdecl sub_490860(int a1) {
 	sleepTime = 0;
 	// Loop until next frame due
 	do {
-		sleepTime = (16949 * framerateFactor - (uint32_t)ElapsedMicroseconds.QuadPart) / 1000; // calculate sleep time, 16949 µs = 59 fps (to limit frame drops)
+		sleepTime = (16949 * framerateFactor - (uint32_t)ElapsedMicroseconds.QuadPart) / 1000; // calculate sleep time, 16949 Âµs = 59 fps (to limit frame drops)
 		sleepTime = ((sleepTime / tc.wPeriodMin) * tc.wPeriodMin) - tc.wPeriodMin; // truncate to multiple of period
 		if (sleepTime > 0)
 			Sleep(sleepTime); // sleep to avoid wasted CPU
@@ -64,7 +64,7 @@ int sub_49D910() {
 	// this code can't be in Init() because width/height are not set at first
 
 	/* Set width and height */
-	auto pattern = hook::pattern("8B 15 ? ? ? ? 89 4C 24 08 89 44 24 0C"); //4B5672
+	auto pattern = hook::pattern("8B 15 ? ? ? ? 89 4C 24 08 89 44 24 0C"); //4C2F02
 	Variables.nWidth = *(int*)pattern.get_first(2);
 	Variables.nHeight = *((int*)pattern.get_first(2) + 4);
 	Variables.fAspectRatio = float(Variables.nWidth) / float(Variables.nHeight);
@@ -72,7 +72,7 @@ int sub_49D910() {
 	Variables.f2DScaleValue = (4.0f / 3.0f) / Variables.fAspectRatio;
 
 	/* Fix 3D stretch */
-	pattern = hook::pattern("C7 40 44 00 00 40 3F"); //4CE80F
+	pattern = hook::pattern("C7 40 44 00 00 40 3F"); //4D82FF
 	struct Widescreen3DHook
 	{
 		void operator()(injector::reg_pack& regs)
@@ -91,7 +91,7 @@ int sub_49D910() {
 DWORD WINAPI Init(LPVOID bDelay)
 {
 	/* INITIALISE */
-	auto pattern = hook::pattern("03 D1 2B D7 85 D2 7E 09 52 E8 ? ? ? ?"); //4909B5
+	auto pattern = hook::pattern("03 D1 2B D7 85 D2 7E 09 52 E8 ? ? ? ?"); //4951F5
 
 	if (pattern.count_hint(1).empty() && !bDelay)
 	{
@@ -109,30 +109,30 @@ DWORD WINAPI Init(LPVOID bDelay)
 		timeGetDevCaps(&tc, sizeof(tc));
 		QueryPerformanceFrequency(&Frequency);
 
-		pattern = hook::pattern("8B 0D ? ? ? ? 2B F1 3B"); //4011DF
-		Variables.speedMultiplier = *(uint32_t**)pattern.get_first<uint32_t**>(2);
-		pattern = hook::pattern("39 3D ? ? ? ? 75 27"); //403C3A
-  		Variables.isDemoMode = *(bool**)pattern.get_first<bool*>(2);
+		pattern = hook::pattern("A1 ? ? ? ? B9 14 00 00 00"); //4136B2
+		Variables.speedMultiplier = *(uint32_t**)pattern.get_first<uint32_t**>(1);
+		pattern = hook::pattern("56 8B 35 ? ? ? ? 3B F2"); //4A2B52
+  		Variables.isDemoMode = *(bool**)pattern.get_first<bool*>(3);
 
-		pattern = hook::pattern("C7 05 ? ? ? ? 00 00 00 00 E8 ? ? ? ? E8 ? ? ? ? 33"); //49BBD8
-		sub_490860_addr = ((uintptr_t)pattern.get_first(15) + *pattern.get_first<uintptr_t>(11));
-		injector::MakeCALL(pattern.get_first(10), sub_490860);
-		pattern = hook::pattern("83 C4 08 6A 01 E8 ? ? ? ?"); //441906
+		pattern = hook::pattern("00 E8 ? ? ? ? E8 ? ? ? ? 33"); //49BBE1
+		sub_490860_addr = ((uintptr_t)pattern.get_first(6) + *pattern.get_first<uintptr_t>(2));
+		injector::MakeCALL(pattern.get_first(1), sub_490860);
+		pattern = hook::pattern("83 C4 08 6A 01 E8 ? ? ? ?"); //4447F8
 		injector::MakeCALL(pattern.get_first(5), sub_490860);
-		pattern = hook::pattern("6A 00 E8 ? ? ? ? 6A 01 E8 ? ? ? ? 83"); //4419F4
+		pattern = hook::pattern("6A 00 E8 ? ? ? ? 6A 01 E8 ? ? ? ? 83"); //444924
 		injector::MakeCALL(pattern.get_first(2), sub_490860);
 	}
 
 
 	/* Allow 32-bit modes regardless of registry settings - thanks hdc0 */
 	if (iniReader.ReadBoolean(INI_KEY, "Allow32Bit", true)) {
-		pattern = hook::pattern("74 0B 5E 5D B8 01 00 00 00"); //4ACA44
+		pattern = hook::pattern("76 03 33 C0 C3 3D 40 01 00"); //435D0E
 		injector::WriteMemory<uint8_t>(pattern.get_first(0), '\xEB', true);
 	}
 
 	/* Fix "Unable to enumerate a suitable device - thanks hdc0 */
 	if (iniReader.ReadBoolean(INI_KEY, "IgnoreVRAM", true)) {
-		pattern = hook::pattern("74 44 8B 8A 50 01 00 00 8B 91 64 03 00 00"); //4ACAC2
+		pattern = hook::pattern("74 44 8B 8A 50 01 00 00 8B 91 64 03 00 00"); //4B36B2
 		injector::WriteMemory<uint8_t>(pattern.get_first(0), '\xEB', true);
 	}
 
@@ -146,12 +146,14 @@ DWORD WINAPI Init(LPVOID bDelay)
 				_asm mov di, 1
 			}
 
-		}; injector::MakeInline<CopyrightHook>(pattern.get_first(0), pattern.get_first(7));
+		};
+		if (!pattern.empty())
+			injector::MakeInline<CopyrightHook>(pattern.get_first(0), pattern.get_first(7));
 	}
 
 	/* Increase Render Distance to Max */
 	if (iniReader.ReadBoolean(INI_KEY, "IncreaseRenderDistance", true)) {
-		pattern = hook::pattern("D9 44 24 04 D8 4C 24 04 D9 1D"); //4BC410
+		pattern = hook::pattern("D9 44 24 04 D8 4C 24 04 D9 1D"); //4C4EC0
 		float** flt_5088B0_addr = (float**)pattern.get_first(10);
 		**flt_5088B0_addr = INFINITY;
 		injector::MakeNOP(pattern.get_first(8), 6);
@@ -159,7 +161,7 @@ DWORD WINAPI Init(LPVOID bDelay)
 
 	/* Fix widescreen once game loop begins */
 	if (iniReader.ReadBoolean(INI_KEY, "Widescreen", true)) {
-		pattern = hook::pattern("8D 44 24 10 50 57 E8 ? ? ? ? 83"); //4317EC
+		pattern = hook::pattern("8D 44 24 ? 50 57 E8 ? ? ? ? 83"); //4011C5
 		sub_49D910_addr = ((uintptr_t)pattern.get_first(11) + *pattern.get_first<uintptr_t>(7));
 		injector::MakeCALL(pattern.get_first(6), sub_49D910);
 	}
